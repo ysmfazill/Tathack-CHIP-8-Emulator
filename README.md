@@ -14,9 +14,9 @@ A Chip-8 emulator built in C++ with SDL2 graphics and audio support.
 - 60 FPS rendering
 - Speed Control (UP/DOWN arrows)
 - Savestate/Loadstate (F5/F9)
-- Color Palettes (1/2/3/4 keys)
+- 4 Color Palettes (F1/F2/F3/F4 keys)
 
-## Bug Fixes Implemented
+## Implementation Defects Identified and Fixed During Debugging
 
 1. **FX0A Key Wait:** Fixed non-blocking key wait to strictly block the PC until a key is pressed.
 2. **Timer Decoupling:** Decoupled delay/sound timers from the CPU cycle speed so they decrement strictly at 60 Hz.

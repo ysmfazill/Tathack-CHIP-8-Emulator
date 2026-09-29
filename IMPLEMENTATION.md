@@ -1,7 +1,7 @@
 # TatHack '26 PS1 - CHIP-8 Emulator Implementation Document
 
 ## Overview
-This document summarizes the completion of the CHIP-8 Emulator project for TatHack '26. The project involved squashing 6 critical bugs to make the base emulator functional, followed by the successful implementation of 3 mandatory features (Speed Control, Savestate/Loadstate, and Color Palettes). 
+This document summarizes the completion of the CHIP-8 Emulator project for TatHack '26. The project involved squashing six implementation defects identified and fixed during debugging to make the base emulator functional, followed by the successful implementation of 3 mandatory features (Speed Control, Savestate/Loadstate, and Color Palettes). 
 
 All features are implemented at the core emulator level (`src/chip8.cpp` and `src/main.cpp`), meaning they are globally applicable to all CHIP-8 ROMs (Pong, Tetris, Blinky, etc.).
 
@@ -52,14 +52,16 @@ All features are implemented at the core emulator level (`src/chip8.cpp` and `sr
 - **Implementation:** Defined a `SaveState` struct in `chip8.h` containing arrays for memory, registers, stack, timers, and display. Added `save_state()` and `load_state()` methods to `chip8.cpp` using `std::memcpy` and `<fstream>` to write/read binary snapshots.
 
 ### FEATURE #3: Color Palettes
-- **Description:** Enables players to seamlessly toggle between 3 different color themes for the display rendering.
+- **Description:** Enables players to seamlessly toggle between 4 different color themes for the display rendering.
 - **Controls:**
   - `F1`: Classic Theme (White on Black) - *Default*
   - `F2`: Retro Theme (Amber on Dark Amber)
   - `F3`: Matrix Theme (Neon Green on Dark Green)
-- **Implementation:** Created a `color_theme` state variable in `main.cpp`. Modified `draw_graphics()` to accept this variable and apply different `SDL_SetRenderDrawColor()` RGB values before rendering the screen buffer.
+  - `F4`: High Contrast Theme (Pure B&W)
+- **Implementation:** Created a `color_theme` state variable in `main.cpp`. Modified `draw_graphics()` to accept this variable and apply different `SDL_SetRenderDrawColor()` RGB values before rendering the screen buffer. ImGui radio buttons control this state.
 
 ---
 
 ## Summary
-The emulator successfully executes the provided test ROMs (Pong, Tetris, Blinky) at 60 FPS. All runtime logic, edge cases, and IDE dependencies have been resolved. The project is fully compliant with the hackathon specifications and is ready for submission.
+The emulator codebase supports the provided test ROMs (Pong, Tetris, Blinky) at 60 FPS. All runtime logic and edge cases have been resolved in the code.
+*Note: Due to the CI/AI environment lacking UI hardware and full UCRT64 toolchains, final runtime behavior and graphical output are "Not runtime verified" by the AI agent and must be visually verified locally on the target MSYS2 environment.*

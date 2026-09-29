@@ -37,7 +37,8 @@ const int PADDING = 20;
 const int GAME_WIDTH = 64 * SCALE;
 const int GAME_HEIGHT = 32 * SCALE;
 const int PANEL_WIDTH = 300;
-const int WIDTH = GAME_WIDTH + PANEL_WIDTH + (PADDING * 3);
+const int DEBUG_WIDTH = 250;
+const int WIDTH = GAME_WIDTH + PANEL_WIDTH + DEBUG_WIDTH + (PADDING * 4);
 const int HEIGHT = GAME_HEIGHT + (PADDING * 2);
 
 uint8_t keymap[16] = {
@@ -302,6 +303,24 @@ int main(int argc, char **argv) {
     ImGui::RadioButton("Retro (Amber)", &color_theme, 2);
     ImGui::RadioButton("Matrix (Neon)", &color_theme, 3);
     ImGui::RadioButton("High Contrast (Pure B&W)", &color_theme, 4);
+    ImGui::End();
+
+    // CPU Inspector Panel
+    ImGui::SetNextWindowPos(ImVec2(GAME_WIDTH + PANEL_WIDTH + (PADDING * 3), PADDING), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(DEBUG_WIDTH, 0), ImGuiCond_Always);
+    ImGui::Begin("CPU Inspector", NULL, window_flags);
+    ImGui::Text("Display: 64 x 32");
+    ImGui::Text("CPU Speed: %d cycles/s", cycles_per_frame * 60);
+    ImGui::Separator();
+    ImGui::Text("Opcode: 0x%04X", chip8.opcode);
+    ImGui::Text("PC: 0x%03X   I: 0x%03X", chip8.pc, chip8.index);
+    ImGui::Text("SP: 0x%02X", chip8.sp);
+    ImGui::Text("Delay: %02d    Sound: %02d", chip8.delay_timer, chip8.sound_timer);
+    ImGui::Separator();
+    ImGui::Text("Registers:");
+    for (int i = 0; i < 8; i++) {
+        ImGui::Text("V%X: %02X     V%X: %02X", i, chip8.v[i], i+8, chip8.v[i+8]);
+    }
     ImGui::End();
 
     draw_graphics(renderer, chip8, color_theme, enable_ghost, ghost_valid ? &ghost_state : nullptr, enable_grid);

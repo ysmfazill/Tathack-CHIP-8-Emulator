@@ -1,1 +1,8 @@
 .vscode/
+*.o
+*.obj
+*.exe
+chip8
+chip8.exe
+savestate.bin
+imgui.ini
