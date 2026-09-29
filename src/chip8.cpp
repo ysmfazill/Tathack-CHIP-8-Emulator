@@ -206,15 +206,13 @@ void Chip8::emulate_cycle(){
                 for(int x_line=0; x_line<8; x_line++){
                     // Check if current pixel is 1
                     if((pixel & (0x80 >> x_line)) != 0){
-                        int screen_x = (x & 63) + x_line, screen_y = (y & 31) + y_line;
-                        if (screen_x >= 64 || screen_y >= 32) continue;
+                        int screen_x = ((x & 63) + x_line) & 63;  // Wrapped
+                        int screen_y = ((y & 31) + y_line) & 31;  // Wrapped
                         int screen_index = screen_x + (screen_y*64); // 1D display array
                         // Checking for collision
                         if(display[screen_index] == 1) v[0xF] = 1; // Set collision flag
                         // We now flip the pixel
                         display[screen_index] ^= 1;
-
-
                     }
                 }
             }
