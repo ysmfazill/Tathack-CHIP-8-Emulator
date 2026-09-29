@@ -12,13 +12,25 @@
 #include <cstdint>
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <algorithm>
+
+std::string get_rom_name(const std::string& path) {
+    size_t last_slash = path.find_last_of("/\\");
+    std::string name = (last_slash == std::string::npos) ? path : path.substr(last_slash + 1);
+    size_t last_dot = name.find_last_of('.');
+    if (last_dot != std::string::npos) name = name.substr(0, last_dot);
+    std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+    return name;
+}
+
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
 
 const int SCALE = 10;
 const int WIDTH = 64 * SCALE;
-const int HEIGHT = 32 * SCALE;
+const int HEIGHT = (32 * SCALE) + 160; // Expanded to ensure UI does not overlap display
 
 uint8_t keymap[16] = {
     SDLK_x, SDLK_1, SDLK_2, SDLK_3,
@@ -44,28 +56,33 @@ void audio_callback(void *userdata, uint8_t *stream, int len) {
   }
 }
 
-void draw_graphics(SDL_Renderer *renderer, Chip8 &chip8, int color_theme, bool enable_ghost, SaveState* ghost_state) {
-  if (color_theme == 2) {
-    SDL_SetRenderDrawColor(renderer, 43, 27, 4, 255);
-  } else if (color_theme == 3) {
-    SDL_SetRenderDrawColor(renderer, 0, 30, 0, 255);
-  } else {
+void draw_graphics(SDL_Renderer *renderer, Chip8 &chip8, int color_theme, bool enable_ghost, SaveState* ghost_state, bool enable_grid) {
+  if (color_theme == 2) { // Amber
+    SDL_SetRenderDrawColor(renderer, 15, 10, 0, 255);
+  } else if (color_theme == 3) { // Neon
+    SDL_SetRenderDrawColor(renderer, 0, 15, 0, 255);
+  } else if (color_theme == 4) { // High Contrast
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  } else { // Classic
+    SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
   }
   SDL_RenderClear(renderer);
   
-  if (color_theme == 2) {
+  if (color_theme == 2) { // Amber
     SDL_SetRenderDrawColor(renderer, 255, 176, 0, 255);
-  } else if (color_theme == 3) {
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-  } else {
+  } else if (color_theme == 3) { // Neon
+    SDL_SetRenderDrawColor(renderer, 0, 255, 128, 255);
+  } else if (color_theme == 4) { // High Contrast
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+  } else { // Classic
+    SDL_SetRenderDrawColor(renderer, 240, 240, 240, 255);
   }
 
   for (int y = 0; y < 32; y++) {
     for (int x = 0; x < 64; x++) {
       if (chip8.display[x + (y * 64)] == 1) {
-        SDL_Rect rect = {x * SCALE, y * SCALE, SCALE, SCALE};
+        int render_scale = enable_grid ? (SCALE - 1) : SCALE;
+        SDL_Rect rect = {x * SCALE, y * SCALE, render_scale, render_scale};
         SDL_RenderFillRect(renderer, &rect);
       }
     }
@@ -76,15 +93,18 @@ void draw_graphics(SDL_Renderer *renderer, Chip8 &chip8, int color_theme, bool e
     if (color_theme == 2) {
       SDL_SetRenderDrawColor(renderer, 255, 176, 0, 64);
     } else if (color_theme == 3) {
-      SDL_SetRenderDrawColor(renderer, 0, 255, 0, 64);
-    } else {
+      SDL_SetRenderDrawColor(renderer, 0, 255, 128, 64);
+    } else if (color_theme == 4) {
       SDL_SetRenderDrawColor(renderer, 255, 255, 255, 64);
+    } else {
+      SDL_SetRenderDrawColor(renderer, 240, 240, 240, 64);
     }
 
     for (int y = 0; y < 32; y++) {
       for (int x = 0; x < 64; x++) {
         if (ghost_state->display[x + (y * 64)] == 1) {
-          SDL_Rect rect = {x * SCALE, y * SCALE, SCALE, SCALE};
+          int render_scale = enable_grid ? (SCALE - 1) : SCALE;
+          SDL_Rect rect = {x * SCALE, y * SCALE, render_scale, render_scale};
           SDL_RenderFillRect(renderer, &rect);
         }
       }
@@ -137,6 +157,7 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
       else if (event.key.keysym.sym == SDLK_F1) color_theme = 1;
       else if (event.key.keysym.sym == SDLK_F2) color_theme = 2;
       else if (event.key.keysym.sym == SDLK_F3) color_theme = 3;
+      else if (event.key.keysym.sym == SDLK_F4) color_theme = 4;
       
       for (int i = 0; i < 16; i++) {
         if (event.key.keysym.sym == keymap[i])
@@ -195,7 +216,7 @@ int main(int argc, char **argv) {
   bool running = true;
   const uint32_t TARGET_FRAME_TIME = 16;
   int cycles_per_frame = 10;
-  int color_theme = 1;
+  int color_theme = 4; // Default to High Contrast (Pure B&W) for maximum generic legibility
 
   SaveState ghost_state;
   bool ghost_valid = false;
@@ -203,6 +224,9 @@ int main(int argc, char **argv) {
 
   uint32_t last_ticks = SDL_GetTicks();
   float timer_accumulator = 0.0f;
+
+  std::string rom_name = get_rom_name(argv[1]);
+  bool enable_grid = false;
 
   while (running) {
     uint32_t frame_start = SDL_GetTicks();
@@ -227,8 +251,16 @@ int main(int argc, char **argv) {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
+    // Position the UI panel strictly below the 640x320 CHIP-8 logical display
+    ImGui::SetNextWindowPos(ImVec2(10, (32 * SCALE) + 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(WIDTH - 20, 140), ImGuiCond_FirstUseEver);
+
     ImGui::Begin("Features Showcase");
+    ImGui::Text("ROM: %s", rom_name.c_str());
+    ImGui::Separator();
+    
     ImGui::SliderInt("Speed", &cycles_per_frame, 1, 30);
+    ImGui::Checkbox("Pixel Grid (Helps Tetris)", &enable_grid);
     
     if (ImGui::Button("Save State")) {
         chip8.save_state("savestate.bin");
@@ -249,9 +281,10 @@ int main(int argc, char **argv) {
     ImGui::RadioButton("Classic (White/Black)", &color_theme, 1);
     ImGui::RadioButton("Retro (Amber)", &color_theme, 2);
     ImGui::RadioButton("Matrix (Neon)", &color_theme, 3);
+    ImGui::RadioButton("High Contrast (Pure B&W)", &color_theme, 4);
     ImGui::End();
 
-    draw_graphics(renderer, chip8, color_theme, enable_ghost, ghost_valid ? &ghost_state : nullptr);
+    draw_graphics(renderer, chip8, color_theme, enable_ghost, ghost_valid ? &ghost_state : nullptr, enable_grid);
 
     ImGui::Render();
     ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
