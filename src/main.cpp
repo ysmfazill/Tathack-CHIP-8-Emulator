@@ -29,8 +29,9 @@ std::string get_rom_name(const std::string& path) {
 #include "imgui_impl_sdlrenderer2.h"
 
 const int SCALE = 10;
-const int WIDTH = 64 * SCALE;
-const int HEIGHT = (32 * SCALE) + 160; // Expanded to ensure UI does not overlap display
+const int PANEL_WIDTH = 300;
+const int WIDTH = (64 * SCALE) + PANEL_WIDTH;
+const int HEIGHT = 32 * SCALE;
 
 uint8_t keymap[16] = {
     SDLK_x, SDLK_1, SDLK_2, SDLK_3,
@@ -251,9 +252,9 @@ int main(int argc, char **argv) {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    // Position the UI panel strictly below the 640x320 CHIP-8 logical display
-    ImGui::SetNextWindowPos(ImVec2(10, (32 * SCALE) + 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(WIDTH - 20, 140), ImGuiCond_FirstUseEver);
+    // Position the UI panel strictly to the right of the 640x320 CHIP-8 logical display
+    ImGui::SetNextWindowPos(ImVec2((64 * SCALE) + 10, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(PANEL_WIDTH - 20, HEIGHT - 20), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Features Showcase");
     ImGui::Text("ROM: %s", rom_name.c_str());
