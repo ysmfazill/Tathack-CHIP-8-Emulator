@@ -15,6 +15,10 @@
 #include <string>
 #include <algorithm>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 std::string get_rom_name(const std::string& path) {
     size_t last_slash = path.find_last_of("/\\");
     std::string name = (last_slash == std::string::npos) ? path : path.substr(last_slash + 1);
@@ -29,9 +33,12 @@ std::string get_rom_name(const std::string& path) {
 #include "imgui_impl_sdlrenderer2.h"
 
 const int SCALE = 10;
+const int PADDING = 20;
+const int GAME_WIDTH = 64 * SCALE;
+const int GAME_HEIGHT = 32 * SCALE;
 const int PANEL_WIDTH = 300;
-const int WIDTH = (64 * SCALE) + PANEL_WIDTH;
-const int HEIGHT = 32 * SCALE;
+const int WIDTH = GAME_WIDTH + PANEL_WIDTH + (PADDING * 3);
+const int HEIGHT = GAME_HEIGHT + (PADDING * 2);
 
 uint8_t keymap[16] = {
     SDLK_x, SDLK_1, SDLK_2, SDLK_3,
@@ -83,7 +90,7 @@ void draw_graphics(SDL_Renderer *renderer, Chip8 &chip8, int color_theme, bool e
     for (int x = 0; x < 64; x++) {
       if (chip8.display[x + (y * 64)] == 1) {
         int render_scale = enable_grid ? (SCALE - 1) : SCALE;
-        SDL_Rect rect = {x * SCALE, y * SCALE, render_scale, render_scale};
+        SDL_Rect rect = {(x * SCALE) + PADDING, (y * SCALE) + PADDING, render_scale, render_scale};
         SDL_RenderFillRect(renderer, &rect);
       }
     }
@@ -105,7 +112,7 @@ void draw_graphics(SDL_Renderer *renderer, Chip8 &chip8, int color_theme, bool e
       for (int x = 0; x < 64; x++) {
         if (ghost_state->display[x + (y * 64)] == 1) {
           int render_scale = enable_grid ? (SCALE - 1) : SCALE;
-          SDL_Rect rect = {x * SCALE, y * SCALE, render_scale, render_scale};
+          SDL_Rect rect = {(x * SCALE) + PADDING, (y * SCALE) + PADDING, render_scale, render_scale};
           SDL_RenderFillRect(renderer, &rect);
         }
       }
@@ -175,6 +182,11 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
 }
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+  HWND hwnd = GetConsoleWindow();
+  if (hwnd) ShowWindow(hwnd, SW_HIDE);
+#endif
+
   if (argc < 2) {
     std::cerr << "Usage: " << argv[0] << " <ROM file>" << std::endl;
     return 1;
@@ -183,6 +195,7 @@ int main(int argc, char **argv) {
     std::cerr << "SDL Error: " << SDL_GetError() << std::endl;
     return 1;
   }
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Ensure nearest-neighbor scaling
   
   bool beeping = false;
   SDL_AudioSpec want, have;
@@ -206,6 +219,7 @@ int main(int argc, char **argv) {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.IniFilename = nullptr; // Disable imgui.ini to strictly enforce our fixed layout
   ImGui::StyleColorsDark();
 
   ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
@@ -238,6 +252,10 @@ int main(int argc, char **argv) {
     handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid);
     for (int i = 0; i < cycles_per_frame; i++) {
       chip8.emulate_cycle();
+      if (chip8.draw_flag) {
+        chip8.draw_flag = false;
+        break; // Yield on draw to prevent flickering/invisible sprites
+      }
     }
 
     while (timer_accumulator >= (1000.0f / 60.0f)) {
@@ -252,11 +270,12 @@ int main(int argc, char **argv) {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    // Position the UI panel strictly to the right of the 640x320 CHIP-8 logical display
-    ImGui::SetNextWindowPos(ImVec2((64 * SCALE) + 10, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(PANEL_WIDTH - 20, HEIGHT - 20), ImGuiCond_FirstUseEver);
+    // Position the UI panel strictly to the right of the padded CHIP-8 logical display
+    ImGui::SetNextWindowPos(ImVec2(GAME_WIDTH + (PADDING * 2), PADDING), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(PANEL_WIDTH, 0), ImGuiCond_Always);
 
-    ImGui::Begin("Features Showcase");
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar;
+    ImGui::Begin("Features Showcase", NULL, window_flags);
     ImGui::Text("ROM: %s", rom_name.c_str());
     ImGui::Separator();
     
