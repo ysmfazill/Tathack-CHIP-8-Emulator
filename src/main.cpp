@@ -141,6 +141,9 @@ int main(int argc, char** argv){
             SDL_Delay(16); // 60 FPS with 16ms per frame
         }
 
+        chip8.decrease_delay_timer();
+        chip8.decrease_sound_timer();
+
         beeping = (chip8.get_sound_timer() > 0);
         draw_graphics(renderer, chip8);
     }

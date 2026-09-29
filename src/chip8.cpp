@@ -252,7 +252,7 @@ void Chip8::emulate_cycle(){
                             break;
                         }
                     }
-                    pc += 2;
+                    if(key_pressed) pc += 2;
                 }
                     break;
                 case 0x0015: // FX15 - delay_timer = v[x]
@@ -301,8 +301,13 @@ void Chip8::emulate_cycle(){
             pc += 2;
             break;
     }
-    // We now update the timers
+}
+
+void Chip8::decrease_delay_timer(){
     if(delay_timer > 0) delay_timer--;
+}
+
+void Chip8::decrease_sound_timer(){
     if(sound_timer > 0){
         if(sound_timer == 1) std::cout << "BEEP!" << std::endl;
         sound_timer--;
