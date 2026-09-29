@@ -12,6 +12,18 @@ A Chip-8 emulator built in C++ with SDL2 graphics and audio support.
 - Keyboard input support
 - Sound effects (beep tone)
 - 60 FPS rendering
+- Speed Control (UP/DOWN arrows)
+- Savestate/Loadstate (F5/F9)
+- Color Palettes (1/2/3/4 keys)
+
+## Bug Fixes Implemented
+
+1. **FX0A Key Wait:** Fixed non-blocking key wait to strictly block the PC until a key is pressed.
+2. **Timer Decoupling:** Decoupled delay/sound timers from the CPU cycle speed so they decrement strictly at 60 Hz.
+3. **60 FPS Timing:** Fixed the main loop timing by adding adaptive SDL_Delay to maintain exactly 16ms per frame.
+4. **DXYN Wrapping:** Fixed sprite rendering to properly wrap `X` and `Y` coordinates independently across screen boundaries.
+5. **Arithmetic Flags (8XY5/8XY7):** Fixed subtract operations to correctly use `>=` instead of `>` when setting the VF borrow flag.
+6. **FX55/FX65 Bounds:** Fixed memory load/store bounds to use `<=` instead of `<` to include the final `X` register loop iteration.
 
 ## Architecture
 
@@ -97,6 +109,16 @@ Chip-8 Keypad:          QWERTY Keyboard:
 **Controls:**
 - `ESC` - Quit emulator
 - Keyboard keys as mapped above
+
+**New Features:**
+- `UP Arrow` - Increase emulation speed (cycles per frame)
+- `DOWN Arrow` - Decrease emulation speed (cycles per frame)
+- `F5` - Save state to savestate.bin
+- `F9` - Load state from savestate.bin
+- `F1` - Classic Palette (White/Black)
+- `F2` - Retro Palette (Amber)
+- `F3` - Matrix Palette (Neon)
+- `F4` - High Contrast Palette (Pure B&W)
 
 ### Game-Specific Controls
 
