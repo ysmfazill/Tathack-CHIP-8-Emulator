@@ -134,11 +134,14 @@ int main(int argc, char** argv){
     chip8.load_rom(argv[1]);
     
     bool running = true;
+    const uint32_t TARGET_FRAME_TIME = 16; // ~60 FPS (16ms per frame)
+
     while(running){
+        uint32_t frame_start = SDL_GetTicks();
+
         handle_input(chip8, running);
         for(int i=0; i<10; i++){
             chip8.emulate_cycle();
-            SDL_Delay(16); // 60 FPS with 16ms per frame
         }
 
         chip8.decrease_delay_timer();
@@ -146,6 +149,11 @@ int main(int argc, char** argv){
 
         beeping = (chip8.get_sound_timer() > 0);
         draw_graphics(renderer, chip8);
+
+        uint32_t elapsed_time = SDL_GetTicks() - frame_start;
+        if(elapsed_time < TARGET_FRAME_TIME){
+            SDL_Delay(TARGET_FRAME_TIME - elapsed_time);
+        }
     }
     if(audio_device != 0) SDL_CloseAudioDevice(audio_device);
     SDL_DestroyRenderer(renderer);
