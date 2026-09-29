@@ -120,10 +120,12 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
       else if (event.key.keysym.sym == SDLK_UP) {
           cycles_per_frame++;
           if (cycles_per_frame > 30) cycles_per_frame = 30;
+          std::cout << "Speed increased: " << cycles_per_frame << " cycles/frame\n";
       }
       else if (event.key.keysym.sym == SDLK_DOWN) {
           cycles_per_frame--;
           if (cycles_per_frame < 1) cycles_per_frame = 1;
+          std::cout << "Speed decreased: " << cycles_per_frame << " cycles/frame\n";
       }
       else if (event.key.keysym.sym == SDLK_F5) {
           chip8.save_state("savestate.bin");
@@ -199,16 +201,25 @@ int main(int argc, char **argv) {
   bool ghost_valid = false;
   bool enable_ghost = false;
 
+  uint32_t last_ticks = SDL_GetTicks();
+  float timer_accumulator = 0.0f;
+
   while (running) {
     uint32_t frame_start = SDL_GetTicks();
+    uint32_t dt = frame_start - last_ticks;
+    last_ticks = frame_start;
+    timer_accumulator += dt;
 
     handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid);
     for (int i = 0; i < cycles_per_frame; i++) {
       chip8.emulate_cycle();
     }
 
-    chip8.decrease_delay_timer();
-    chip8.decrease_sound_timer();
+    while (timer_accumulator >= (1000.0f / 60.0f)) {
+      chip8.decrease_delay_timer();
+      chip8.decrease_sound_timer();
+      timer_accumulator -= (1000.0f / 60.0f);
+    }
 
     beeping = (chip8.get_sound_timer() > 0);
 

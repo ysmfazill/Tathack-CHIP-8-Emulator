@@ -72,6 +72,7 @@ void Chip8::load_rom(const std::string &filename) {
 }
 
 void Chip8::emulate_cycle() {
+  if (pc >= 4095) return; // Prevent out-of-bounds opcode fetch
   opcode = memory[pc] << 8 | memory[pc + 1]; // 16-bit instruction
 
   switch (opcode & 0xF000) { // Gets only the first 4 bits
@@ -98,9 +99,11 @@ void Chip8::emulate_cycle() {
     pc = opcode & 0x0FFF;
     break;
   case 0x2000: // 2XXX = Call subroutine at XXX
-    stack[sp] = pc;
-    sp++;
-    pc = opcode & 0x0FFF;
+    if (sp < 16) {
+      stack[sp] = pc;
+      sp++;
+      pc = opcode & 0x0FFF;
+    }
     break;
   case 0x3000: // 3XNN = Skip next instruction if v[x] = NN
     if (v[(opcode & 0x0F00) >> 8] == (opcode & 0x00FF))
@@ -149,31 +152,35 @@ void Chip8::emulate_cycle() {
       break;
     case 0x0004: { // v[x] += v[y], v[F] = carry
       uint16_t sum = v[(opcode & 0x0F00) >> 8] + v[(opcode & 0x00F0) >> 4];
-      v[0xF] = (sum > 0xFF) ? 1 : 0;
+      uint8_t flag = (sum > 0xFF) ? 1 : 0;
       v[(opcode & 0x0F00) >> 8] = sum & 0xFF;
+      v[0xF] = flag;
       pc += 2;
     } break;
-    case 0x0005: // v[x] -= v[y], v[F] = NOT(borrow)
-      v[0xF] = (v[(opcode & 0x0F00) >> 8] >= v[(opcode & 0x00F0) >> 4]) ? 1 : 0;
+    case 0x0005: { // v[x] -= v[y], v[F] = NOT(borrow)
+      uint8_t flag = (v[(opcode & 0x0F00) >> 8] >= v[(opcode & 0x00F0) >> 4]) ? 1 : 0;
       v[(opcode & 0x0F00) >> 8] -= v[(opcode & 0x00F0) >> 4];
+      v[0xF] = flag;
       pc += 2;
-      break;
-    case 0x0006: // v[x] >>= 1, v[F] = LSB
-      v[0xF] = v[(opcode & 0x0F00) >> 8] & 0x1;
+    } break;
+    case 0x0006: { // v[x] >>= 1, v[F] = LSB
+      uint8_t flag = v[(opcode & 0x0F00) >> 8] & 0x1;
       v[(opcode & 0x0F00) >> 8] >>= 1;
+      v[0xF] = flag;
       pc += 2;
-      break;
-    case 0x0007: // v[x] = v[y] - v[x], v[F] = NOT(borrow)
-      v[0xF] = (v[(opcode & 0x00F0) >> 4] >= v[(opcode & 0x0F00) >> 8]) ? 1 : 0;
-      v[(opcode & 0x0F00) >> 8] =
-          v[(opcode & 0x00F0) >> 4] - v[(opcode & 0x0F00) >> 8];
+    } break;
+    case 0x0007: { // v[x] = v[y] - v[x], v[F] = NOT(borrow)
+      uint8_t flag = (v[(opcode & 0x00F0) >> 4] >= v[(opcode & 0x0F00) >> 8]) ? 1 : 0;
+      v[(opcode & 0x0F00) >> 8] = v[(opcode & 0x00F0) >> 4] - v[(opcode & 0x0F00) >> 8];
+      v[0xF] = flag;
       pc += 2;
-      break;
-    case 0x000E:                               // v[x] <<= 1, v[F] = MSB
-      v[0xF] = v[(opcode & 0x0F00) >> 8] >> 7; // Save MSB
+    } break;
+    case 0x000E: { // v[x] <<= 1, v[F] = MSB
+      uint8_t flag = v[(opcode & 0x0F00) >> 8] >> 7; // Save MSB
       v[(opcode & 0x0F00) >> 8] <<= 1;
+      v[0xF] = flag;
       pc += 2;
-      break;
+    } break;
     default:
       std::cerr << "Unknown opcode: 0x" << std::hex << opcode << std::endl;
       pc += 2;
@@ -207,6 +214,7 @@ void Chip8::emulate_cycle() {
     v[0xF] = 0; // Resetting collision flag
     // Looping through each row of the sprite
     for (int y_line = 0; y_line < height; y_line++) {
+      if (index + y_line >= 4096) break;
       pixel = memory[index + y_line]; // One row of sprite data
       // Now looping through each pixel in the row (8)
       for (int x_line = 0; x_line < 8; x_line++) {
@@ -281,21 +289,25 @@ void Chip8::emulate_cycle() {
       break;
     case 0x0033: { // FX33 - store BCD representation of v[x] at index
       uint8_t value = v[(opcode & 0x0F00) >> 8];
-      memory[index] = value / 100;
-      memory[index + 1] = value / 10;
-      memory[index + 2] = value % 10;
+      if (index < 4096) memory[index] = value / 100;
+      if (index + 1 < 4096) memory[index + 1] = value / 10;
+      if (index + 2 < 4096) memory[index + 2] = value % 10;
       pc += 2;
     } break;
     case 0x0055: // FX55 - store v[0] to v[x] in memory starting from index
       for (int i = 0; i <= ((opcode & 0x0F00) >> 8); i++) {
-        memory[index + i] = v[i];
+        if (index + i < 4096) {
+          memory[index + i] = v[i];
+        }
       }
       pc += 2;
       break;
     case 0x0065: // FX65 - Fill v[0] to v[x] from memory starting at
                  // index
       for (int i = 0; i <= ((opcode & 0x0F00) >> 8); i++) {
-        v[i] = memory[index + i];
+        if (index + i < 4096) {
+          v[i] = memory[index + i];
+        }
       }
       pc += 2;
       break;
