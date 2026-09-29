@@ -4,9 +4,24 @@
 #include <cstdint>
 #include <string>
 
+struct SaveState {
+    uint8_t memory[4096];
+    uint8_t v[16];
+    uint16_t I;
+    uint16_t PC;
+    uint8_t SP;
+    uint16_t stack[16];
+    uint8_t delay_timer;
+    uint8_t sound_timer;
+    uint8_t display[64*32];
+    uint8_t key[16];
+};
+
 class Chip8{
     public:
         Chip8();
+        void save_state(const std::string& filename);
+        void load_state(const std::string& filename);
         void load_rom(const std::string& filename); // To load a game file
         void emulate_cycle(); // To execute one instruction
         bool draw_flag; // When we need to redraw the screen;

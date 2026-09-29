@@ -83,9 +83,11 @@ void Chip8::emulate_cycle() {
       pc += 2;
       break;
     case 0x00EE: // Returns from subroutine
-      pc = stack[sp];
-      sp--;
-      pc += 2;
+      if (sp > 0) {
+        sp--;
+        pc = stack[sp];
+        pc += 2;
+      }
       break;
     default:
       std::cerr << "Unknown opcode: 0x" << std::hex << opcode << std::endl;
@@ -290,7 +292,8 @@ void Chip8::emulate_cycle() {
       }
       pc += 2;
       break;
-    case 0x0065: // FX65 - Fill v[0] to v[x] from memory starting at index
+    case 0x0065: // FX65 - Fill v[0] to v[x] from memory starting at
+                 // index
       for (int i = 0; i <= ((opcode & 0x0F00) >> 8); i++) {
         v[i] = memory[index + i];
       }
@@ -319,4 +322,61 @@ void Chip8::decrease_sound_timer() {
       std::cout << "BEEP!" << std::endl;
     sound_timer--;
   }
+}
+
+void Chip8::save_state(const std::string& filename) {
+    SaveState state;
+    
+    std::memcpy(state.memory, memory, sizeof(memory));
+    std::memcpy(state.v, v, sizeof(v));
+    state.I = index;
+    state.PC = pc;
+    state.SP = sp;
+    std::memcpy(state.stack, stack, sizeof(stack));
+    state.delay_timer = delay_timer;
+    state.sound_timer = sound_timer;
+    std::memcpy(state.display, display, sizeof(display));
+    std::memcpy(state.key, key, sizeof(key));
+    
+    std::ofstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "ERROR: Failed to save state to " << filename << std::endl;
+        return;
+    }
+    
+    file.write((char*)&state, sizeof(SaveState));
+    file.close();
+    
+    std::cout << "State saved to " << filename << std::endl;
+}
+
+void Chip8::load_state(const std::string& filename) {
+    SaveState state;
+    
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "ERROR: Failed to load state from " << filename << std::endl;
+        return;
+    }
+    
+    file.read((char*)&state, sizeof(SaveState));
+    if (!file) {
+        std::cerr << "ERROR: File corrupted or wrong size" << std::endl;
+        file.close();
+        return;
+    }
+    file.close();
+    
+    std::memcpy(memory, state.memory, sizeof(memory));
+    std::memcpy(v, state.v, sizeof(v));
+    index = state.I;
+    pc = state.PC;
+    sp = state.SP;
+    std::memcpy(stack, state.stack, sizeof(stack));
+    delay_timer = state.delay_timer;
+    sound_timer = state.sound_timer;
+    std::memcpy(display, state.display, sizeof(display));
+    std::memcpy(key, state.key, sizeof(key));
+    
+    std::cout << "State loaded from " << filename << std::endl;
 }
