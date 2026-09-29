@@ -14,6 +14,11 @@
 #include <fstream>
 #include <string>
 #include <algorithm>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
@@ -48,21 +53,53 @@ uint8_t keymap[16] = {
     SDLK_4, SDLK_r, SDLK_f, SDLK_v
 };
 
-void audio_callback(void *userdata, uint8_t *stream, int len) {
-  static uint32_t sample_index = 0;
-  int16_t *audio_buffer = (int16_t *)stream;
-  int samples = len / 2;
+struct AudioState {
+    bool beeping = false;
+    bool test_beeping = false;
+    int test_timer_ms = 0;
+    uint32_t last_test_ticks = 0;
+    
+    int waveform = 0; // 0=Square, 1=Sine, 2=Triangle, 3=Sawtooth
+    int frequency = 440;
+    int volume = 50;
+    uint32_t sample_index = 0;
+};
 
-  bool *beeping = (bool *)userdata;
-  for (int i = 0; i < samples; i++) {
-    if (*beeping) {
-      int16_t value = ((sample_index++ / 100) % 2) ? 3000 : -3000;
-      audio_buffer[i] = value;
-    } else {
-      audio_buffer[i] = 0;
-      sample_index = 0;
+void audio_callback(void *userdata, uint8_t *stream, int len) {
+    AudioState* state = (AudioState*)userdata;
+    int16_t* audio_buffer = (int16_t*)stream;
+    int samples = len / 2;
+    const float SAMPLE_RATE = 44100.0f;
+    const float MAX_AMPLITUDE = 32767.0f;
+
+    for (int i = 0; i < samples; i++) {
+        if (state->beeping || state->test_beeping) {
+            float time = state->sample_index / SAMPLE_RATE;
+            float period = 1.0f / state->frequency;
+            float phase = fmod(time, period) / period; // 0.0 to 1.0
+
+            float amplitude = (state->volume / 100.0f) * MAX_AMPLITUDE;
+            int16_t value = 0;
+
+            if (state->waveform == 0) { // Square
+                value = (phase < 0.5f) ? amplitude : -amplitude;
+            } else if (state->waveform == 1) { // Sine
+                value = amplitude * sin(2.0f * M_PI * state->frequency * time);
+            } else if (state->waveform == 2) { // Triangle
+                float val = 4.0f * fabs(phase - 0.5f) - 1.0f;
+                value = amplitude * val;
+            } else if (state->waveform == 3) { // Sawtooth
+                float val = 2.0f * phase - 1.0f;
+                value = amplitude * val;
+            }
+
+            audio_buffer[i] = value;
+            state->sample_index++;
+        } else {
+            audio_buffer[i] = 0;
+            state->sample_index = 0;
+        }
     }
-  }
 }
 
 void draw_graphics(SDL_Renderer *renderer, Chip8 &chip8, int color_theme, bool enable_ghost, SaveState* ghost_state, bool enable_grid) {
@@ -198,7 +235,7 @@ int main(int argc, char **argv) {
   }
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Ensure nearest-neighbor scaling
   
-  bool beeping = false;
+  AudioState audio_state;
   SDL_AudioSpec want, have;
   SDL_zero(want);
   want.freq = 44100;
@@ -206,7 +243,7 @@ int main(int argc, char **argv) {
   want.channels = 1;
   want.samples = 2048;
   want.callback = audio_callback;
-  want.userdata = &beeping;
+  want.userdata = &audio_state;
 
   SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
   if (audio_device != 0) SDL_PauseAudioDevice(audio_device, 0);
@@ -265,7 +302,16 @@ int main(int argc, char **argv) {
       timer_accumulator -= (1000.0f / 60.0f);
     }
 
-    beeping = (chip8.get_sound_timer() > 0);
+    uint32_t current_ticks = SDL_GetTicks();
+    if (audio_state.test_timer_ms > 0) {
+        audio_state.test_timer_ms -= (current_ticks - audio_state.last_test_ticks);
+        if (audio_state.test_timer_ms <= 0) {
+            audio_state.test_timer_ms = 0;
+            audio_state.test_beeping = false;
+        }
+    }
+    audio_state.last_test_ticks = current_ticks;
+    audio_state.beeping = (chip8.get_sound_timer() > 0);
 
     ImGui_ImplSDLRenderer2_NewFrame();
     ImGui_ImplSDL2_NewFrame();
@@ -273,9 +319,9 @@ int main(int argc, char **argv) {
 
     // Position the UI panel strictly to the right of the padded CHIP-8 logical display
     ImGui::SetNextWindowPos(ImVec2(GAME_WIDTH + (PADDING * 2), PADDING), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(PANEL_WIDTH, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(PANEL_WIDTH, HEIGHT - (PADDING * 2)), ImGuiCond_Always);
 
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar;
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
     ImGui::Begin("Features Showcase", NULL, window_flags);
     ImGui::Text("ROM: %s", rom_name.c_str());
     ImGui::Separator();
@@ -303,11 +349,25 @@ int main(int argc, char **argv) {
     ImGui::RadioButton("Retro (Amber)", &color_theme, 2);
     ImGui::RadioButton("Matrix (Neon)", &color_theme, 3);
     ImGui::RadioButton("High Contrast (Pure B&W)", &color_theme, 4);
+
+    ImGui::Separator();
+    if (ImGui::CollapsingHeader("AUDIO SETTINGS", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const char* waveforms[] = { "Square", "Sine", "Triangle", "Sawtooth" };
+        ImGui::Combo("Waveform", &audio_state.waveform, waveforms, IM_ARRAYSIZE(waveforms));
+        ImGui::SliderInt("Frequency", &audio_state.frequency, 100, 2000, "%d Hz");
+        ImGui::SliderInt("Volume", &audio_state.volume, 0, 100, "%d%%");
+        if (ImGui::Button("TEST SOUND")) {
+            audio_state.test_timer_ms = 200; // 200ms duration
+            audio_state.test_beeping = true;
+            audio_state.last_test_ticks = SDL_GetTicks();
+        }
+    }
+    
     ImGui::End();
 
     // CPU Inspector Panel
     ImGui::SetNextWindowPos(ImVec2(GAME_WIDTH + PANEL_WIDTH + (PADDING * 3), PADDING), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(DEBUG_WIDTH, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(DEBUG_WIDTH, HEIGHT - (PADDING * 2)), ImGuiCond_Always);
     ImGui::Begin("CPU Inspector", NULL, window_flags);
     ImGui::Text("Display: 64 x 32");
     ImGui::Text("CPU Speed: %d cycles/s", cycles_per_frame * 60);
