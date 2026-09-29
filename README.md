@@ -133,6 +133,17 @@ Graphics are rendered using SDL2:
 
 Simple square wave generation at 440 Hz (musical note A) plays when `sound_timer > 0`.
 
+## Testing
+
+The emulator has been rigorously tested against standard CHIP-8 test ROMs and actual games:
+
+- **Opcode behavior:** Verified arithmetic flags (8XY5, 8XY7), correctly blocked key waits (FX0A), and safe memory bounds.
+- **Sprite wrapping & collision:** Checked DXYN wrapping on screen boundaries using Pong. Verified collision flag (VF) flips correctly on XOR erase.
+- **Timers:** Confirmed 60 Hz delay and sound timers operate smoothly regardless of CPU cycle speed.
+- **Save/Load State:** Verified memory, registers, and timers are correctly serialized and deserialized via `savestate.bin` without corruption.
+- **Speed control:** Tested real-time up/down scaling (1 to 30 CPU cycles per frame).
+- **Games Tested:** Pong, Tetris, Blinky. All run at stable framerates with correct input handling.
+
 ## Resources
 
 - [Chip-8 ROMs Archive](https://github.com/kripod/chip8-roms)
