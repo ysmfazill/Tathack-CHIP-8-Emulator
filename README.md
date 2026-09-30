@@ -129,6 +129,12 @@ Chip-8 Keypad:          QWERTY Keyboard:
 - `F3` - Matrix Palette (Neon)
 - `F4` - High Contrast Palette (Pure B&W)
 
+**Debugger Controls (Bonus):**
+- `F6` - Toggle Debug Mode (pause/resume)
+- `F7` - Step forward one instruction
+- `D` - Dump all registers to standard output
+- `SPACE` - Resume normal play
+
 ### Game-Specific Controls
 
 **PONG:**
@@ -162,7 +168,11 @@ Graphics are rendered using SDL2:
 
 ### Audio
 
-Simple square wave generation at 440 Hz (musical note A) plays when `sound_timer > 0`.
+Fully customizable real-time sound synthesis via the ImGui dashboard.
+- **Waveform:** Selectable between Square, Sine, Triangle, and Sawtooth.
+- **Frequency:** Adjustable from 100 Hz to 2000 Hz dynamically.
+- **Volume:** Adjustable from 0% to 100%.
+- **Test Mode:** A dedicated "TEST SOUND" button for instant audio preview.
 
 ## Testing
 
