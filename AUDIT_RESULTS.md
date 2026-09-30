@@ -187,6 +187,20 @@ Blinky: Verified locally on MSYS2 by user
 Command: `mingw32-make clean && mingw32-make`
 Result: Passes locally.
 
+## Usage / Execution
+
+**Launch with Interactive ROM Browser (Recommended):**
+```bash
+./chip8
+```
+*(On Windows PowerShell, use `.\chip8.exe`)*
+
+**Launch Directly via Command Line (Legacy bypass):**
+```bash
+./chip8 roms/Pong.ch8
+```
+*(On Windows PowerShell, use `.\chip8.exe roms/Pong.ch8`)*
+
 ## Keyboard Mapping (Reference)
 
 ### Standard Controls
