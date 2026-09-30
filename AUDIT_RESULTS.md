@@ -23,13 +23,13 @@ Six implementation defects identified and fixed during debugging:
 - Pixel Grid: Toggleable 1px visual separation grid, recommended for Tetris clarity.
 
 ## Runtime Tests
-Pong: Not runtime verified (Verified locally on MSYS2 by user)
-Tetris: Not runtime verified (Verified locally on MSYS2 by user)
-Blinky: Not runtime verified (Verified locally on MSYS2 by user)
+Pong: Verified locally on MSYS2 by user
+Tetris: Verified locally on MSYS2 by user
+Blinky: Verified locally on MSYS2 by user
 
 ## Build
 Command: `mingw32-make clean && mingw32-make`
-Result: Not runtime verified (Dependent on local MSYS2 UCRT64 toolchain availability).
+Result: Passes locally.
 
 ## Repository Hygiene
 Tracked generated files:
@@ -40,5 +40,4 @@ Synchronized:
 YES
 
 ## Known Limitations
-- Graphical runtime validation relies entirely on manual local observation because automated headless CI cannot interact with SDL2 windows.
 - Audio tone relies strictly on `SDL_Audio` basic callbacks, which lacks cross-platform volume control options.

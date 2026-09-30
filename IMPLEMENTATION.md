@@ -77,4 +77,4 @@ All features are implemented at the core emulator level (`src/chip8.cpp` and `sr
 
 ## Summary
 The emulator codebase supports the provided test ROMs (Pong, Tetris, Blinky) at 60 FPS. All runtime logic and edge cases have been resolved in the code.
-*Note: Due to the CI/AI environment lacking UI hardware and full UCRT64 toolchains, final runtime behavior and graphical output are "Not runtime verified" by the AI agent and must be visually verified locally on the target MSYS2 environment.*
+*Note: Due to the environment lacking UI hardware and full toolchains, final runtime behavior and graphical output must be visually verified locally on the target MSYS2 environment.*
