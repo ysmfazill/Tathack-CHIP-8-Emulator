@@ -186,3 +186,36 @@ Blinky: Verified locally on MSYS2 by user
 ## Build
 Command: `mingw32-make clean && mingw32-make`
 Result: Passes locally.
+
+## Keyboard Mapping (Reference)
+
+### Standard Controls
+```text
+Chip-8 Keypad:          QWERTY Keyboard:
+┌─┬─┬─┬─┐               ┌─┬─┬─┬─┐
+│1│2│3│C│               │1│2│3│4│
+├─┼─┼─┼─┤               ├─┼─┼─┼─┤
+│4│5│6│D│               │Q│W│E│R│
+├─┼─┼─┼─┤      =        ├─┼─┼─┼─┤
+│7│8│9│E│               │A│S│D│F│
+├─┼─┼─┼─┤               ├─┼─┼─┼─┤
+│A│0│B│F│               │Z│X│C│V│
+└─┴─┴─┴─┘               └─┴─┴─┴─┘
+```
+- `ESC` - Quit emulator
+
+### Extended Feature Controls
+- `UP Arrow` - Increase emulation speed (cycles per frame)
+- `DOWN Arrow` - Decrease emulation speed (cycles per frame)
+- `F5` - Save state to savestates/<ROM>.sav
+- `F9` - Load state from savestates/<ROM>.sav
+- `F1` - Classic Palette (White/Black)
+- `F2` - Retro Palette (Amber)
+- `F3` - Matrix Palette (Neon)
+- `F4` - High Contrast Palette (Pure B&W)
+
+### Debugger Controls (Bonus)
+- `F6` - Toggle Debug Mode (pause/resume)
+- `F7` - Step forward one instruction
+- `D` - Dump all registers to standard output
+- `SPACE` - Resume normal play
