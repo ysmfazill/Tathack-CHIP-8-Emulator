@@ -177,7 +177,7 @@ void reload_ghost_state(SaveState& ghost_state, bool& ghost_valid, const std::st
     }
 }
 
-void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, std::string& save_status_msg, float& save_status_timer, bool& blinky_game_over, int& blinky_score, bool& blinky_collision_latch, const std::string& rom_file) {
+void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, std::string& save_status_msg, float& save_status_timer, bool& blinky_game_over, int& blinky_score, bool& blinky_collision_latch, const std::string& rom_file, bool& debug_mode, bool& step_requested) {
   SDL_Event event;
 
   while (SDL_PollEvent(&event)) {
@@ -237,6 +237,37 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
       else if (event.key.keysym.sym == SDLK_F2) color_theme = 2;
       else if (event.key.keysym.sym == SDLK_F3) color_theme = 3;
       else if (event.key.keysym.sym == SDLK_F4) color_theme = 4;
+      else if (event.key.keysym.sym == SDLK_F6) {
+          debug_mode = !debug_mode;
+          if(debug_mode) {
+              std::cout << "\n[DEBUG MODE ON] F7=step D=regs SPACE=resume\n" << std::endl;
+          } else {
+              std::cout << "[DEBUG MODE OFF - Normal play]\n" << std::endl;
+          }
+      }
+      else if (event.key.keysym.sym == SDLK_F7) {
+          if(debug_mode) step_requested = true;
+      }
+      else if (event.key.keysym.sym == SDLK_SPACE) {
+          if(debug_mode) {
+              debug_mode = false;
+              std::cout << "[Resuming normal play]\n" << std::endl;
+          }
+      }
+      else if (event.key.keysym.sym == SDLK_d) {
+          if(debug_mode) {
+              std::cout << "\n=== REGISTERS ===" << std::endl;
+              std::cout << "PC: 0x" << std::hex << chip8.pc << std::dec << " | ";
+              std::cout << "I: 0x" << std::hex << chip8.index << std::dec << " | ";
+              std::cout << "SP: " << (int)chip8.sp << std::endl;
+              for(int i=0; i<16; i++) {
+                  std::cout << "V" << std::hex << i << ": 0x" << std::hex 
+                            << (int)chip8.v[i] << std::dec;
+                  if(i%4==3) std::cout << std::endl; else std::cout << " | ";
+              }
+              std::cout << "================\n" << std::endl;
+          }
+      }
       
       for (int i = 0; i < 16; i++) {
         if (event.key.keysym.sym == keymap[i])
@@ -300,6 +331,8 @@ int main(int argc, char **argv) {
   chip8.load_rom(argv[1]);
 
   bool running = true;
+  bool debug_mode = false;
+  bool step_requested = false;
   const uint32_t TARGET_FRAME_TIME = 16;
   int cycles_per_frame = 10;
   int color_theme = 4; // Default to High Contrast (Pure B&W) for maximum generic legibility
@@ -343,14 +376,26 @@ int main(int argc, char **argv) {
         }
     }
 
-    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, save_status_msg, save_status_timer, blinky_game_over, blinky_score, blinky_collision_latch, argv[1]);
+    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, save_status_msg, save_status_timer, blinky_game_over, blinky_score, blinky_collision_latch, argv[1], debug_mode, step_requested);
     
-    for (int i = 0; i < cycles_per_frame; i++) {
-      chip8.emulate_cycle();
-      if (chip8.draw_flag) {
-        chip8.draw_flag = false;
-        break; // Yield on draw to prevent flickering/invisible sprites
-      }
+    if(debug_mode) {
+        // Debug mode: Step one instruction at a time
+        if(step_requested) {
+            uint16_t current_opcode = (chip8.memory[chip8.pc] << 8) | chip8.memory[chip8.pc + 1];
+            std::cout << "[PC: 0x" << std::hex << chip8.pc << "] " 
+                      << disassemble_opcode(current_opcode) << std::dec << std::endl;
+            chip8.emulate_cycle();
+            step_requested = false;
+        }
+    } else {
+        // Normal mode: Execute cycles per frame
+        for (int i = 0; i < cycles_per_frame; i++) {
+          chip8.emulate_cycle();
+          if (chip8.draw_flag) {
+            chip8.draw_flag = false;
+            break; // Yield on draw to prevent flickering/invisible sprites
+          }
+        }
     }
 
     if (rom_name == "BLINKY" && blinky_assist && !blinky_game_over) {

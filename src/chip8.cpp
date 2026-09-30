@@ -4,6 +4,75 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <cstdio>
+#include <string>
+
+std::string disassemble_opcode(uint16_t opcode) {
+    char buffer[256];
+    uint8_t x = (opcode & 0x0F00) >> 8;
+    uint8_t y = (opcode & 0x00F0) >> 4;
+    uint8_t n = opcode & 0x000F;
+    uint8_t nn = opcode & 0x00FF;
+    uint16_t nnn = opcode & 0x0FFF;
+    
+    switch(opcode & 0xF000) {
+        case 0x0000:
+            if(opcode == 0x00E0) return "00E0 - Clear display";
+            if(opcode == 0x00EE) return "00EE - Return";
+            return "0NNN - SYS";
+        
+        case 0x1000: snprintf(buffer, 256, "1%03X - Jump 0x%03X", nnn, nnn); return buffer;
+        case 0x2000: snprintf(buffer, 256, "2%03X - Call 0x%03X", nnn, nnn); return buffer;
+        case 0x3000: snprintf(buffer, 256, "3%X%02X - Skip if V%X==0x%02X", x, nn, x, nn); return buffer;
+        case 0x4000: snprintf(buffer, 256, "4%X%02X - Skip if V%X!=0x%02X", x, nn, x, nn); return buffer;
+        case 0x5000: snprintf(buffer, 256, "5%X%X0 - Skip if V%X==V%X", x, y, x, y); return buffer;
+        case 0x6000: snprintf(buffer, 256, "6%X%02X - Set V%X=0x%02X", x, nn, x, nn); return buffer;
+        case 0x7000: snprintf(buffer, 256, "7%X%02X - Add V%X+=0x%02X", x, nn, x, nn); return buffer;
+        
+        case 0x8000: {
+            switch(n) {
+                case 0x0: snprintf(buffer, 256, "8%X%X0 - V%X=V%X", x, y, x, y); return buffer;
+                case 0x1: snprintf(buffer, 256, "8%X%X1 - V%X|=V%X", x, y, x, y); return buffer;
+                case 0x2: snprintf(buffer, 256, "8%X%X2 - V%X&=V%X", x, y, x, y); return buffer;
+                case 0x3: snprintf(buffer, 256, "8%X%X3 - V%X^=V%X", x, y, x, y); return buffer;
+                case 0x4: snprintf(buffer, 256, "8%X%X4 - V%X+=V%X (carry)", x, y, x, y); return buffer;
+                case 0x5: snprintf(buffer, 256, "8%X%X5 - V%X-=V%X (borrow)", x, y, x, y); return buffer;
+                case 0x6: snprintf(buffer, 256, "8%X%X6 - V%X>>=1", x, y, x); return buffer;
+                case 0x7: snprintf(buffer, 256, "8%X%X7 - V%X=V%X-V%X", x, y, x, y, x); return buffer;
+                case 0xE: snprintf(buffer, 256, "8%X%XE - V%X<<=1", x, y, x); return buffer;
+                default: return "8XYN - Unknown";
+            }
+        }
+        
+        case 0x9000: snprintf(buffer, 256, "9%X%X0 - Skip if V%X!=V%X", x, y, x, y); return buffer;
+        case 0xA000: snprintf(buffer, 256, "A%03X - I=0x%03X", nnn, nnn); return buffer;
+        case 0xB000: snprintf(buffer, 256, "B%03X - Jump 0x%03X+V0", nnn, nnn); return buffer;
+        case 0xC000: snprintf(buffer, 256, "C%X%02X - V%X=rand()&0x%02X", x, nn, x, nn); return buffer;
+        case 0xD000: snprintf(buffer, 256, "D%X%X%X - Draw V%X,V%X h=%X", x, y, n, x, y, n); return buffer;
+        
+        case 0xE000:
+            if((opcode & 0xFF) == 0x9E) snprintf(buffer, 256, "E%X9E - Skip if key[V%X]", x, x);
+            else snprintf(buffer, 256, "E%XA1 - Skip if !key[V%X]", x, x);
+            return buffer;
+        
+        case 0xF000: {
+            switch(nn) {
+                case 0x07: snprintf(buffer, 256, "F%X07 - V%X=delay_timer", x, x); return buffer;
+                case 0x0A: snprintf(buffer, 256, "F%X0A - V%X=key_wait", x, x); return buffer;
+                case 0x15: snprintf(buffer, 256, "F%X15 - delay_timer=V%X", x, x); return buffer;
+                case 0x18: snprintf(buffer, 256, "F%X18 - sound_timer=V%X", x, x); return buffer;
+                case 0x1E: snprintf(buffer, 256, "F%X1E - I+=V%X", x, x); return buffer;
+                case 0x29: snprintf(buffer, 256, "F%X29 - I=sprite(V%X)", x, x); return buffer;
+                case 0x33: snprintf(buffer, 256, "F%X33 - BCD V%X@I", x, x); return buffer;
+                case 0x55: snprintf(buffer, 256, "F%X55 - Store V0-V%X@I", x, x); return buffer;
+                case 0x65: snprintf(buffer, 256, "F%X65 - Load V0-V%X@I", x, x); return buffer;
+                default: snprintf(buffer, 256, "F%X%02X - Unknown", x, nn); return buffer;
+            }
+        }
+        
+        default: snprintf(buffer, 256, "%04X - Unknown", opcode); return buffer;
+    }
+}
 
 uint8_t chip8_fontset[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0

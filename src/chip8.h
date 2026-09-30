@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <string>
 
+std::string disassemble_opcode(uint16_t opcode);
+
 struct SaveState {
     char rom_name[64];
     uint32_t version;
