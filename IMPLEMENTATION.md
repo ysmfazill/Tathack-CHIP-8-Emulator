@@ -60,6 +60,19 @@ All features are implemented at the core emulator level (`src/chip8.cpp` and `sr
   - `F4`: High Contrast Theme (Pure B&W)
 - **Implementation:** Created a `color_theme` state variable in `main.cpp`. Modified `draw_graphics()` to accept this variable and apply different `SDL_SetRenderDrawColor()` RGB values before rendering the screen buffer. ImGui radio buttons control this state.
 
+### FEATURE #4: Disassembler & Debugger (Bonus)
+- **Description:** A step-through debugger and live disassembler that translates hexadecimal opcodes into human-readable assembly instructions.
+- **Controls:**
+  - `F6`: Toggle Debug Mode (pause/resume)
+  - `F7`: Step forward one instruction
+  - `D`: Dump all registers to standard output
+  - `SPACE`: Resume normal play
+- **Implementation:** Added `disassemble_opcode()` to `chip8.cpp`. Modified `main.cpp` game loop to halt execution and wait for input when `debug_mode` is active. Parses the 16-bit opcode and prints its mnemonic format (e.g., `Jump 0x234`) to standard output.
+
+### FEATURE #5: ROM File Browser UI (Bonus)
+- **Description:** An ImGui-based visual menu that scans the local `roms/` directory and allows the user to click and load any `.ch8` file interactively.
+- **Implementation:** Implemented `get_available_roms()` using `std::filesystem` to populate a sorted vector of ROM files. Introduced a `GameState` enum (`MENU`, `PLAYING`, `DEBUG_MODE`). Bypasses the menu automatically if a ROM is provided as a command-line argument for backward compatibility.
+
 ---
 
 ## Summary
