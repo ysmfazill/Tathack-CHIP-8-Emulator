@@ -292,6 +292,12 @@ int main(int argc, char **argv) {
   bool enable_grid = false;
   bool show_load_error = false;
   float error_timer = 0.0f;
+  
+  bool blinky_assist = false;
+  int blinky_score = 0;
+  bool blinky_caught = false;
+  float blinky_caught_timer = 0.0f;
+  bool blinky_collision_latch = false;
 
   while (running) {
     uint32_t frame_start = SDL_GetTicks();
@@ -308,12 +314,48 @@ int main(int argc, char **argv) {
     }
 
     handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, show_load_error);
+    
     for (int i = 0; i < cycles_per_frame; i++) {
       chip8.emulate_cycle();
       if (chip8.draw_flag) {
         chip8.draw_flag = false;
         break; // Yield on draw to prevent flickering/invisible sprites
       }
+    }
+
+    if (rom_name == "BLINKY" && blinky_assist) {
+        int px = chip8.v[8];
+        int py = chip8.v[9];
+        int g1x = chip8.v[0xA];
+        int g1y = chip8.v[0xB];
+        int g2x = chip8.v[0xC];
+        int g2y = chip8.v[0xD];
+
+        bool collision = false;
+        if (std::abs(px - g1x) < 4 && std::abs(py - g1y) < 4) collision = true;
+        if (std::abs(px - g2x) < 4 && std::abs(py - g2y) < 4) collision = true;
+
+        if (collision) {
+            if (!blinky_collision_latch) {
+                blinky_score += 100;
+                blinky_caught = true;
+                blinky_caught_timer = 750.0f; // 750ms
+                blinky_collision_latch = true;
+                
+                // Reset Pac-Man / Item to start position
+                chip8.v[8] = 0x1A;
+                chip8.v[9] = 0x0C;
+            }
+        } else {
+            blinky_collision_latch = false;
+        }
+
+        if (blinky_caught) {
+            blinky_caught_timer -= dt;
+            if (blinky_caught_timer <= 0.0f) {
+                blinky_caught = false;
+            }
+        }
     }
 
     while (timer_accumulator >= (1000.0f / 60.0f)) {
@@ -373,6 +415,17 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (rom_name == "BLINKY") {
+        ImGui::Separator();
+        ImGui::Checkbox("Blinky Game Assist", &blinky_assist);
+        if (blinky_assist) {
+            ImGui::Text("Blinky Score: %06d", blinky_score);
+            if (ImGui::Button("Reset Score")) {
+                blinky_score = 0;
+            }
+        }
+    }
+
     ImGui::Text("Color Palette");
     ImGui::RadioButton("Classic (White/Black)", &color_theme, 1);
     ImGui::RadioButton("Retro (Amber)", &color_theme, 2);
@@ -411,6 +464,14 @@ int main(int argc, char **argv) {
         ImGui::Text("V%X: %02X     V%X: %02X", i, chip8.v[i], i+8, chip8.v[i+8]);
     }
     ImGui::End();
+
+    if (rom_name == "BLINKY" && blinky_assist && blinky_caught) {
+        ImGui::SetNextWindowPos(ImVec2(GAME_WIDTH / 2.0f + PADDING, GAME_HEIGHT / 2.0f + PADDING), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::Begin("Overlay", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "     CAUGHT!     ");
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "      +100       ");
+        ImGui::End();
+    }
 
     draw_graphics(renderer, chip8, color_theme, enable_ghost, ghost_valid ? &ghost_state : nullptr, enable_grid);
 
