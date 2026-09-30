@@ -336,9 +336,13 @@ void Chip8::decrease_sound_timer() {
   }
 }
 
-void Chip8::save_state(const std::string& filename) {
+void Chip8::save_state(const std::string& filename, const std::string& current_rom_name) {
     SaveState state;
     
+    std::memset(state.rom_name, 0, sizeof(state.rom_name));
+    std::strncpy(state.rom_name, current_rom_name.c_str(), sizeof(state.rom_name) - 1);
+    state.version = 1;
+
     std::memcpy(state.memory, memory, sizeof(memory));
     std::memcpy(state.v, v, sizeof(v));
     state.I = index;
@@ -362,22 +366,27 @@ void Chip8::save_state(const std::string& filename) {
     std::cout << "State saved to " << filename << std::endl;
 }
 
-void Chip8::load_state(const std::string& filename) {
+bool Chip8::load_state(const std::string& filename, const std::string& current_rom_name) {
     SaveState state;
     
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "ERROR: Failed to load state from " << filename << std::endl;
-        return;
+        return false;
     }
     
     file.read((char*)&state, sizeof(SaveState));
     if (!file) {
         std::cerr << "ERROR: File corrupted or wrong size" << std::endl;
         file.close();
-        return;
+        return false;
     }
     file.close();
+    
+    if (state.version != 1 || std::string(state.rom_name) != current_rom_name) {
+        std::cerr << "ERROR: Save state belongs to another ROM or format." << std::endl;
+        return false;
+    }
     
     std::memcpy(memory, state.memory, sizeof(memory));
     std::memcpy(v, state.v, sizeof(v));
@@ -391,4 +400,5 @@ void Chip8::load_state(const std::string& filename) {
     std::memcpy(key, state.key, sizeof(key));
     
     std::cout << "State loaded from " << filename << std::endl;
+    return true;
 }

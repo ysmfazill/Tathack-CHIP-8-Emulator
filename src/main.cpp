@@ -15,6 +15,7 @@
 #include <string>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -159,18 +160,22 @@ void draw_graphics(SDL_Renderer *renderer, Chip8 &chip8, int color_theme, bool e
   }
 }
 
-void reload_ghost_state(SaveState& ghost_state, bool& ghost_valid) {
-    std::ifstream file("savestate.bin", std::ios::binary);
+void reload_ghost_state(SaveState& ghost_state, bool& ghost_valid, const std::string& filename, const std::string& current_rom_name) {
+    std::ifstream file(filename, std::ios::binary);
     if (file.is_open()) {
         file.read((char*)&ghost_state, sizeof(SaveState));
-        ghost_valid = file.good();
+        if (file.good() && ghost_state.version == 1 && std::string(ghost_state.rom_name) == current_rom_name) {
+            ghost_valid = true;
+        } else {
+            ghost_valid = false;
+        }
         file.close();
     } else {
         ghost_valid = false;
     }
 }
 
-void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid) {
+void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, bool& show_load_error) {
   SDL_Event event;
 
   while (SDL_PollEvent(&event)) {
@@ -194,11 +199,13 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
           std::cout << "Speed decreased: " << cycles_per_frame << " cycles/frame\n";
       }
       else if (event.key.keysym.sym == SDLK_F5) {
-          chip8.save_state("savestate.bin");
-          reload_ghost_state(ghost_state, ghost_valid);
+          chip8.save_state(save_path, rom_name);
+          reload_ghost_state(ghost_state, ghost_valid, save_path, rom_name);
       }
       else if (event.key.keysym.sym == SDLK_F9) {
-          chip8.load_state("savestate.bin");
+          if (!chip8.load_state(save_path, rom_name)) {
+              show_load_error = true;
+          }
       }
       else if (event.key.keysym.sym == SDLK_F1) color_theme = 1;
       else if (event.key.keysym.sym == SDLK_F2) color_theme = 2;
@@ -279,7 +286,12 @@ int main(int argc, char **argv) {
   float timer_accumulator = 0.0f;
 
   std::string rom_name = get_rom_name(argv[1]);
+  std::filesystem::create_directory("savestates");
+  std::string save_path = "savestates/" + rom_name + ".sav";
+  
   bool enable_grid = false;
+  bool show_load_error = false;
+  float error_timer = 0.0f;
 
   while (running) {
     uint32_t frame_start = SDL_GetTicks();
@@ -287,7 +299,15 @@ int main(int argc, char **argv) {
     last_ticks = frame_start;
     timer_accumulator += dt;
 
-    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid);
+    if (show_load_error) {
+        error_timer += dt;
+        if (error_timer > 3000.0f) {
+            show_load_error = false;
+            error_timer = 0.0f;
+        }
+    }
+
+    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, show_load_error);
     for (int i = 0; i < cycles_per_frame; i++) {
       chip8.emulate_cycle();
       if (chip8.draw_flag) {
@@ -330,17 +350,26 @@ int main(int argc, char **argv) {
     ImGui::Checkbox("Pixel Grid (Helps Tetris)", &enable_grid);
     
     if (ImGui::Button("Save State")) {
-        chip8.save_state("savestate.bin");
-        reload_ghost_state(ghost_state, ghost_valid);
+        chip8.save_state(save_path, rom_name);
+        reload_ghost_state(ghost_state, ghost_valid, save_path, rom_name);
     }
     ImGui::SameLine();
     if (ImGui::Button("Load State")) {
-        chip8.load_state("savestate.bin");
+        if (!chip8.load_state(save_path, rom_name)) {
+            show_load_error = true;
+            error_timer = 0.0f;
+        }
     }
+
+    if (show_load_error) {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Save state belongs to another ROM.");
+    }
+    
+    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Save State: %s.sav", rom_name.c_str());
 
     if (ImGui::Checkbox("Save State Ghost", &enable_ghost)) {
         if (enable_ghost) {
-            reload_ghost_state(ghost_state, ghost_valid);
+            reload_ghost_state(ghost_state, ghost_valid, save_path, rom_name);
         }
     }
 

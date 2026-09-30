@@ -6,3 +6,5 @@ chip8
 chip8.exe
 savestate.bin
 imgui.ini
+savestates/
+*.sav

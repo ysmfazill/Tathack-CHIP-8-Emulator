@@ -5,6 +5,8 @@
 #include <string>
 
 struct SaveState {
+    char rom_name[64];
+    uint32_t version;
     uint8_t memory[4096];
     uint8_t v[16];
     uint16_t I;
@@ -20,8 +22,8 @@ struct SaveState {
 class Chip8{
     public:
         Chip8();
-        void save_state(const std::string& filename);
-        void load_state(const std::string& filename);
+        void save_state(const std::string& filename, const std::string& current_rom_name);
+        bool load_state(const std::string& filename, const std::string& current_rom_name);
         void load_rom(const std::string& filename); // To load a game file
         void emulate_cycle(); // To execute one instruction
         bool draw_flag; // When we need to redraw the screen;
