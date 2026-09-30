@@ -80,14 +80,23 @@ git clone https://github.com/TatHack-Tathva/chip8-emulator.git
 make
 ```
 
-## Usage
+## ROM Selection
+
+**Option 1: ROM Browser Menu (Recommended)**
 ```bash
-./chip8 <path-to-rom-file>
+$ ./chip8
+# Console menu appears:
+# [0] Breakout.ch8
+# [1] Pong.ch8
+# [2] Tetris.ch8
+# Enter ROM number: 1
+# Game starts
 ```
 
-**Example:**
+**Option 2: Command Line (Legacy)**
 ```bash
-./chip8 roms/PONG.ch8
+$ ./chip8 roms/Pong.ch8
+# Game loads directly
 ```
 
 ## Keyboard Mapping

@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -32,6 +33,32 @@ std::string get_rom_name(const std::string& path) {
     if (last_dot != std::string::npos) name = name.substr(0, last_dot);
     std::transform(name.begin(), name.end(), name.begin(), ::toupper);
     return name;
+}
+
+enum GameState { MENU, PLAYING, DEBUG_MODE };
+
+std::vector<std::string> get_available_roms() {
+    std::vector<std::string> roms;
+    
+    try {
+        if (!std::filesystem::exists("roms")) {
+            std::filesystem::create_directory("roms");
+        }
+        for (const auto& entry : std::filesystem::directory_iterator("roms")) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                if (filename.length() > 4 && 
+                    filename.substr(filename.length() - 4) == ".ch8") {
+                    roms.push_back(filename);
+                }
+            }
+        }
+        std::sort(roms.begin(), roms.end());
+    } catch (const std::exception& e) {
+        std::cerr << "Error reading roms directory: " << e.what() << std::endl;
+    }
+    
+    return roms;
 }
 
 #include "imgui.h"
@@ -177,7 +204,7 @@ void reload_ghost_state(SaveState& ghost_state, bool& ghost_valid, const std::st
     }
 }
 
-void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, std::string& save_status_msg, float& save_status_timer, bool& blinky_game_over, int& blinky_score, bool& blinky_collision_latch, const std::string& rom_file, bool& debug_mode, bool& step_requested) {
+void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, std::string& save_status_msg, float& save_status_timer, bool& blinky_game_over, int& blinky_score, bool& blinky_collision_latch, const std::string& rom_file, bool& debug_mode, bool& step_requested, GameState& state, bool& rom_loaded) {
   SDL_Event event;
 
   while (SDL_PollEvent(&event)) {
@@ -185,7 +212,8 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
     if (event.type == SDL_QUIT)
       running = false;
     
-    // Process emulator-global hotkeys BEFORE ImGui capture
+    if (state == PLAYING || state == DEBUG_MODE) {
+      // Process emulator-global hotkeys BEFORE ImGui capture
     if (event.type == SDL_KEYDOWN) {
       if (event.key.keysym.sym == SDLK_F5) {
           if (chip8.save_state(save_path, rom_name)) {
@@ -280,6 +308,7 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
           chip8.key[i] = 0;
       }
     }
+    }
   }
 }
 
@@ -289,10 +318,7 @@ int main(int argc, char **argv) {
   if (hwnd) ShowWindow(hwnd, SW_HIDE);
 #endif
 
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <ROM file>" << std::endl;
-    return 1;
-  }
+  // Argument check removed for ROM Browser Menu
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
     std::cerr << "SDL Error: " << SDL_GetError() << std::endl;
     return 1;
@@ -328,7 +354,20 @@ int main(int argc, char **argv) {
   ImGui_ImplSDLRenderer2_Init(renderer);
 
   Chip8 chip8;
-  chip8.load_rom(argv[1]);
+  GameState state = MENU;
+  std::vector<std::string> available_roms = get_available_roms();
+  std::string selected_rom = "";
+  int selected_index = -1;
+  bool rom_loaded = false;
+  bool menu_shown = false;
+
+  if (argc > 1) {
+      selected_rom = argv[1];
+      chip8.load_rom(selected_rom);
+      rom_loaded = true;
+      state = PLAYING;
+      menu_shown = true;
+  }
 
   bool running = true;
   bool debug_mode = false;
@@ -344,9 +383,9 @@ int main(int argc, char **argv) {
   uint32_t last_ticks = SDL_GetTicks();
   float timer_accumulator = 0.0f;
 
-  std::string rom_name = get_rom_name(argv[1]);
+  std::string rom_name = (argc > 1) ? get_rom_name(selected_rom) : "";
   std::filesystem::create_directory("savestates");
-  std::string save_path = "savestates/" + rom_name + ".sav";
+  std::string save_path = (argc > 1) ? "savestates/" + rom_name + ".sav" : "";
   
   bool enable_grid = false;
   std::string save_status_msg = "";
@@ -376,7 +415,52 @@ int main(int argc, char **argv) {
         }
     }
 
-    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, save_status_msg, save_status_timer, blinky_game_over, blinky_score, blinky_collision_latch, argv[1], debug_mode, step_requested);
+    if (state == MENU) {
+        handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, save_status_msg, save_status_timer, blinky_game_over, blinky_score, blinky_collision_latch, selected_rom, debug_mode, step_requested, state, rom_loaded);
+        
+        SDL_SetRenderDrawColor(renderer, 20, 20, 40, 255);
+        SDL_RenderClear(renderer);
+
+        ImGui_ImplSDLRenderer2_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::SetNextWindowPos(ImVec2(WIDTH / 2.0f, HEIGHT / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
+        
+        if (ImGui::Begin("ROM Browser", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse)) {
+            ImGui::Text("Select a ROM to load:");
+            ImGui::Separator();
+            
+            for(size_t i = 0; i < available_roms.size(); i++) {
+                if(ImGui::Selectable(available_roms[i].c_str(), selected_index == (int)i)) {
+                    selected_index = i;
+                }
+            }
+            
+            ImGui::Separator();
+            if(ImGui::Button("Load ROM", ImVec2(100, 0)) && selected_index >= 0) {
+                selected_rom = "roms/" + available_roms[selected_index];
+                chip8.load_rom(selected_rom);
+                rom_name = get_rom_name(selected_rom);
+                save_path = "savestates/" + rom_name + ".sav";
+                rom_loaded = true;
+                state = PLAYING;
+            }
+            ImGui::End();
+        }
+
+        ImGui::Render();
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+        SDL_RenderPresent(renderer);
+        
+        uint32_t elapsed_time = SDL_GetTicks() - frame_start;
+        if (elapsed_time < TARGET_FRAME_TIME) SDL_Delay(TARGET_FRAME_TIME - elapsed_time);
+        
+        continue;
+    }
+
+    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, save_status_msg, save_status_timer, blinky_game_over, blinky_score, blinky_collision_latch, selected_rom, debug_mode, step_requested, state, rom_loaded);
     
     if(debug_mode) {
         // Debug mode: Step one instruction at a time
