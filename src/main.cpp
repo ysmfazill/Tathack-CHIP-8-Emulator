@@ -102,23 +102,34 @@ void audio_callback(void *userdata, uint8_t *stream, int len) {
     const float SAMPLE_RATE = 44100.0f;
     const float MAX_AMPLITUDE = 32767.0f;
 
+    bool beeping = state->beeping.load();
+    bool test_beeping = state->test_beeping.load();
+    int waveform = state->waveform.load();
+    int frequency = state->frequency.load();
+    int volume = state->volume.load();
+
+    if (frequency < 100) frequency = 100;
+    if (frequency > 2000) frequency = 2000;
+    if (volume < 0) volume = 0;
+    if (volume > 100) volume = 100;
+
     for (int i = 0; i < samples; i++) {
-        if (state->beeping || state->test_beeping) {
+        if (beeping || test_beeping) {
             float time = state->sample_index / SAMPLE_RATE;
-            float period = 1.0f / state->frequency;
+            float period = 1.0f / frequency;
             float phase = fmod(time, period) / period; // 0.0 to 1.0
 
-            float amplitude = (state->volume / 100.0f) * MAX_AMPLITUDE;
+            float amplitude = (volume / 100.0f) * MAX_AMPLITUDE;
             int16_t value = 0;
 
-            if (state->waveform == 0) { // Square
+            if (waveform == 0) { // Square
                 value = (phase < 0.5f) ? amplitude : -amplitude;
-            } else if (state->waveform == 1) { // Sine
-                value = amplitude * sin(2.0f * M_PI * state->frequency * time);
-            } else if (state->waveform == 2) { // Triangle
+            } else if (waveform == 1) { // Sine
+                value = amplitude * sin(2.0f * M_PI * frequency * time);
+            } else if (waveform == 2) { // Triangle
                 float val = 4.0f * fabs(phase - 0.5f) - 1.0f;
                 value = amplitude * val;
-            } else if (state->waveform == 3) { // Sawtooth
+            } else if (waveform == 3) { // Sawtooth
                 float val = 2.0f * phase - 1.0f;
                 value = amplitude * val;
             }
