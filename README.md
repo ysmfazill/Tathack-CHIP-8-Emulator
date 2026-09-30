@@ -113,8 +113,8 @@ Chip-8 Keypad:          QWERTY Keyboard:
 **New Features:**
 - `UP Arrow` - Increase emulation speed (cycles per frame)
 - `DOWN Arrow` - Decrease emulation speed (cycles per frame)
-- `F5` - Save state to savestate.bin
-- `F9` - Load state from savestate.bin
+- `F5` - Save state to savestates/<ROM>.sav
+- `F9` - Load state from savestates/<ROM>.sav
 - `F1` - Classic Palette (White/Black)
 - `F2` - Retro Palette (Amber)
 - `F3` - Matrix Palette (Neon)
@@ -162,7 +162,7 @@ The emulator has been rigorously tested against standard CHIP-8 test ROMs and ac
 - **Opcode behavior:** Verified arithmetic flags (8XY5, 8XY7), correctly blocked key waits (FX0A), and safe memory bounds.
 - **Sprite wrapping & collision:** Checked DXYN wrapping on screen boundaries using Pong. Verified collision flag (VF) flips correctly on XOR erase.
 - **Timers:** Confirmed 60 Hz delay and sound timers operate smoothly regardless of CPU cycle speed.
-- **Save/Load State:** Verified memory, registers, and timers are correctly serialized and deserialized via `savestate.bin` without corruption.
+- **Save/Load State:** Verified memory, registers, and timers are correctly serialized and deserialized via `savestates/<ROM>.sav` without corruption.
 - **Speed control:** Tested real-time up/down scaling (1 to 30 CPU cycles per frame).
 - **Games Tested:** Pong, Tetris, Blinky. All run at stable framerates with correct input handling.
 

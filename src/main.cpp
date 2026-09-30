@@ -54,15 +54,17 @@ uint8_t keymap[16] = {
     SDLK_4, SDLK_r, SDLK_f, SDLK_v
 };
 
+#include <atomic>
+
 struct AudioState {
-    bool beeping = false;
-    bool test_beeping = false;
+    std::atomic<bool> beeping{false};
+    std::atomic<bool> test_beeping{false};
     int test_timer_ms = 0;
     uint32_t last_test_ticks = 0;
     
-    int waveform = 0; // 0=Square, 1=Sine, 2=Triangle, 3=Sawtooth
-    int frequency = 440;
-    int volume = 50;
+    std::atomic<int> waveform{0}; // 0=Square, 1=Sine, 2=Triangle, 3=Sawtooth
+    std::atomic<int> frequency{440};
+    std::atomic<int> volume{50};
     uint32_t sample_index = 0;
 };
 
@@ -175,7 +177,7 @@ void reload_ghost_state(SaveState& ghost_state, bool& ghost_valid, const std::st
     }
 }
 
-void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, bool& show_load_error, bool& blinky_game_over, int& blinky_score, bool& blinky_collision_latch, const std::string& rom_file) {
+void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, std::string& save_status_msg, float& save_status_timer, bool& blinky_game_over, int& blinky_score, bool& blinky_collision_latch, const std::string& rom_file) {
   SDL_Event event;
 
   while (SDL_PollEvent(&event)) {
@@ -183,11 +185,27 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
     if (event.type == SDL_QUIT)
       running = false;
     
-    if (ImGui::GetIO().WantCaptureKeyboard) continue;
-
+    // Process emulator-global hotkeys BEFORE ImGui capture
     if (event.type == SDL_KEYDOWN) {
-      if (event.key.keysym.sym == SDLK_ESCAPE) {
-        running = false;
+      if (event.key.keysym.sym == SDLK_F5) {
+          if (chip8.save_state(save_path, rom_name)) {
+              save_status_msg = "State saved: " + rom_name + ".sav";
+          } else {
+              save_status_msg = "ERROR: Could not save state";
+          }
+          save_status_timer = 3000.0f;
+          reload_ghost_state(ghost_state, ghost_valid, save_path, rom_name);
+      }
+      else if (event.key.keysym.sym == SDLK_F9) {
+          int status = chip8.load_state(save_path, rom_name);
+          if (status == 1) {
+              save_status_msg = "State loaded: " + rom_name + ".sav";
+          } else if (status == -1) {
+              save_status_msg = "Save state belongs to another ROM.";
+          } else {
+              save_status_msg = "Save state not found or invalid";
+          }
+          save_status_timer = 3000.0f;
       }
       else if (event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_RETURN) {
         if (rom_name == "BLINKY" && blinky_game_over) {
@@ -197,7 +215,15 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
             chip8.load_rom(rom_file);
         }
       }
-      else if (event.key.keysym.sym == SDLK_UP) {
+      else if (event.key.keysym.sym == SDLK_ESCAPE) {
+        running = false;
+      }
+    }
+
+    if (ImGui::GetIO().WantCaptureKeyboard) continue;
+
+    if (event.type == SDL_KEYDOWN) {
+      if (event.key.keysym.sym == SDLK_UP) {
           cycles_per_frame++;
           if (cycles_per_frame > 30) cycles_per_frame = 30;
           std::cout << "Speed increased: " << cycles_per_frame << " cycles/frame\n";
@@ -206,15 +232,6 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
           cycles_per_frame--;
           if (cycles_per_frame < 1) cycles_per_frame = 1;
           std::cout << "Speed decreased: " << cycles_per_frame << " cycles/frame\n";
-      }
-      else if (event.key.keysym.sym == SDLK_F5) {
-          chip8.save_state(save_path, rom_name);
-          reload_ghost_state(ghost_state, ghost_valid, save_path, rom_name);
-      }
-      else if (event.key.keysym.sym == SDLK_F9) {
-          if (!chip8.load_state(save_path, rom_name)) {
-              show_load_error = true;
-          }
       }
       else if (event.key.keysym.sym == SDLK_F1) color_theme = 1;
       else if (event.key.keysym.sym == SDLK_F2) color_theme = 2;
@@ -299,8 +316,12 @@ int main(int argc, char **argv) {
   std::string save_path = "savestates/" + rom_name + ".sav";
   
   bool enable_grid = false;
-  bool show_load_error = false;
-  float error_timer = 0.0f;
+  std::string save_status_msg = "";
+  float save_status_timer = 0.0f;
+  
+  int ui_waveform = 0;
+  int ui_frequency = 440;
+  int ui_volume = 50;
   
   bool blinky_assist = false;
   int blinky_score = 0;
@@ -315,15 +336,14 @@ int main(int argc, char **argv) {
     last_ticks = frame_start;
     timer_accumulator += dt;
 
-    if (show_load_error) {
-        error_timer += dt;
-        if (error_timer > 3000.0f) {
-            show_load_error = false;
-            error_timer = 0.0f;
+    if (save_status_timer > 0.0f) {
+        save_status_timer -= dt;
+        if (save_status_timer <= 0.0f) {
+            save_status_timer = 0.0f;
         }
     }
 
-    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, show_load_error, blinky_game_over, blinky_score, blinky_collision_latch, argv[1]);
+    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, save_status_msg, save_status_timer, blinky_game_over, blinky_score, blinky_collision_latch, argv[1]);
     
     for (int i = 0; i < cycles_per_frame; i++) {
       chip8.emulate_cycle();
@@ -369,6 +389,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Sample audio state BEFORE decrementing sound timer
+    bool current_beeping = (chip8.get_sound_timer() > 0);
+
     while (timer_accumulator >= (1000.0f / 60.0f)) {
       chip8.decrease_delay_timer();
       chip8.decrease_sound_timer();
@@ -380,11 +403,18 @@ int main(int argc, char **argv) {
         audio_state.test_timer_ms -= (current_ticks - audio_state.last_test_ticks);
         if (audio_state.test_timer_ms <= 0) {
             audio_state.test_timer_ms = 0;
-            audio_state.test_beeping = false;
+            audio_state.test_beeping.store(false);
         }
     }
     audio_state.last_test_ticks = current_ticks;
-    audio_state.beeping = (chip8.get_sound_timer() > 0);
+    
+    // Activate beeping if sound timer is or was active
+    audio_state.beeping.store(current_beeping || (chip8.get_sound_timer() > 0));
+    
+    // Sync atomic config from UI
+    audio_state.waveform.store(ui_waveform);
+    audio_state.frequency.store(ui_frequency);
+    audio_state.volume.store(ui_volume);
 
     ImGui_ImplSDLRenderer2_NewFrame();
     ImGui_ImplSDL2_NewFrame();
@@ -403,19 +433,33 @@ int main(int argc, char **argv) {
     ImGui::Checkbox("Pixel Grid (Helps Tetris)", &enable_grid);
     
     if (ImGui::Button("Save State")) {
-        chip8.save_state(save_path, rom_name);
+        if (chip8.save_state(save_path, rom_name)) {
+            save_status_msg = "State saved: " + rom_name + ".sav";
+        } else {
+            save_status_msg = "ERROR: Could not save state";
+        }
+        save_status_timer = 3000.0f;
         reload_ghost_state(ghost_state, ghost_valid, save_path, rom_name);
     }
     ImGui::SameLine();
     if (ImGui::Button("Load State")) {
-        if (!chip8.load_state(save_path, rom_name)) {
-            show_load_error = true;
-            error_timer = 0.0f;
+        int status = chip8.load_state(save_path, rom_name);
+        if (status == 1) {
+            save_status_msg = "State loaded: " + rom_name + ".sav";
+        } else if (status == -1) {
+            save_status_msg = "Save state belongs to another ROM.";
+        } else {
+            save_status_msg = "Save state not found or invalid";
         }
+        save_status_timer = 3000.0f;
     }
 
-    if (show_load_error) {
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Save state belongs to another ROM.");
+    if (save_status_timer > 0.0f) {
+        if (save_status_msg.find("ERROR") != std::string::npos || save_status_msg.find("invalid") != std::string::npos || save_status_msg.find("another") != std::string::npos) {
+            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", save_status_msg.c_str());
+        } else {
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%s", save_status_msg.c_str());
+        }
     }
     
     ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Save State: %s.sav", rom_name.c_str());
@@ -446,12 +490,12 @@ int main(int argc, char **argv) {
     ImGui::Separator();
     if (ImGui::CollapsingHeader("AUDIO SETTINGS", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* waveforms[] = { "Square", "Sine", "Triangle", "Sawtooth" };
-        ImGui::Combo("Waveform", &audio_state.waveform, waveforms, IM_ARRAYSIZE(waveforms));
-        ImGui::SliderInt("Frequency", &audio_state.frequency, 100, 2000, "%d Hz");
-        ImGui::SliderInt("Volume", &audio_state.volume, 0, 100, "%d%%");
+        ImGui::Combo("Waveform", &ui_waveform, waveforms, IM_ARRAYSIZE(waveforms));
+        ImGui::SliderInt("Frequency", &ui_frequency, 100, 2000, "%d Hz");
+        ImGui::SliderInt("Volume", &ui_volume, 0, 100, "%d%%");
         if (ImGui::Button("TEST SOUND")) {
             audio_state.test_timer_ms = 200; // 200ms duration
-            audio_state.test_beeping = true;
+            audio_state.test_beeping.store(true);
             audio_state.last_test_ticks = SDL_GetTicks();
         }
     }

@@ -336,7 +336,7 @@ void Chip8::decrease_sound_timer() {
   }
 }
 
-void Chip8::save_state(const std::string& filename, const std::string& current_rom_name) {
+bool Chip8::save_state(const std::string& filename, const std::string& current_rom_name) {
     SaveState state;
     
     std::memset(state.rom_name, 0, sizeof(state.rom_name));
@@ -357,35 +357,36 @@ void Chip8::save_state(const std::string& filename, const std::string& current_r
     std::ofstream file(filename, std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "ERROR: Failed to save state to " << filename << std::endl;
-        return;
+        return false;
     }
     
     file.write((char*)&state, sizeof(SaveState));
     file.close();
     
     std::cout << "State saved to " << filename << std::endl;
+    return true;
 }
 
-bool Chip8::load_state(const std::string& filename, const std::string& current_rom_name) {
+int Chip8::load_state(const std::string& filename, const std::string& current_rom_name) {
     SaveState state;
     
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "ERROR: Failed to load state from " << filename << std::endl;
-        return false;
+        return 0; // Not found
     }
     
     file.read((char*)&state, sizeof(SaveState));
     if (!file) {
         std::cerr << "ERROR: File corrupted or wrong size" << std::endl;
         file.close();
-        return false;
+        return 0; // Corrupted
     }
     file.close();
     
     if (state.version != 1 || std::string(state.rom_name) != current_rom_name) {
         std::cerr << "ERROR: Save state belongs to another ROM or format." << std::endl;
-        return false;
+        return -1; // Wrong ROM
     }
     
     std::memcpy(memory, state.memory, sizeof(memory));
@@ -400,5 +401,5 @@ bool Chip8::load_state(const std::string& filename, const std::string& current_r
     std::memcpy(key, state.key, sizeof(key));
     
     std::cout << "State loaded from " << filename << std::endl;
-    return true;
+    return 1; // Success
 }

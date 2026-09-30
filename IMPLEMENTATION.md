@@ -47,8 +47,8 @@ All features are implemented at the core emulator level (`src/chip8.cpp` and `sr
 ### FEATURE #2: Savestate & Loadstate
 - **Description:** Allows the player to serialize the entire virtual machine state to a binary file and resume gameplay exactly from where they left off at a later time.
 - **Controls:**
-  - `F5`: Save state to `savestate.bin`
-  - `F9`: Load state from `savestate.bin`
+  - `F5`: Save state to `savestates/<ROM>.sav`
+  - `F9`: Load state from `savestates/<ROM>.sav`
 - **Implementation:** Defined a `SaveState` struct in `chip8.h` containing arrays for memory, registers, stack, timers, and display. Added `save_state()` and `load_state()` methods to `chip8.cpp` using `std::memcpy` and `<fstream>` to write/read binary snapshots.
 
 ### FEATURE #3: Color Palettes
