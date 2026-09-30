@@ -178,6 +178,19 @@ if (ImGui::Begin("ROM Browser")) {
 }
 ```
 
+### 6. Advanced Audio Customization (Bonus)
+Fully customizable real-time sound synthesis via the ImGui dashboard.
+- **Waveform:** Selectable between Square, Sine, Triangle, and Sawtooth.
+- **Frequency:** Adjustable from 100 Hz to 2000 Hz dynamically.
+- **Volume:** Adjustable from 0% to 100%.
+- **Test Mode:** A dedicated "TEST SOUND" button for instant audio preview.
+```cpp
+const char* waveforms[] = { "Square", "Sine", "Triangle", "Sawtooth" };
+ImGui::Combo("Waveform", &ui_waveform, waveforms, IM_ARRAYSIZE(waveforms));
+ImGui::SliderInt("Frequency", &ui_frequency, 100, 2000, "%d Hz");
+ImGui::SliderInt("Volume", &ui_volume, 0, 100, "%d%%");
+```
+
 ## Runtime Tests
 Pong: Verified locally on MSYS2 by user
 Tetris: Verified locally on MSYS2 by user
