@@ -219,3 +219,7 @@ Chip-8 Keypad:          QWERTY Keyboard:
 - `F7` - Step forward one instruction
 - `D` - Dump all registers to standard output
 - `SPACE` - Resume normal play
+
+### ROM File Browser UI (Bonus)
+- **Automatic** - Appears on startup if no ROM is passed via command line.
+- **Mouse Left-Click** - Select a ROM from the list and click "Load ROM".
