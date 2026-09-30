@@ -175,7 +175,7 @@ void reload_ghost_state(SaveState& ghost_state, bool& ghost_valid, const std::st
     }
 }
 
-void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, bool& show_load_error) {
+void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color_theme, SaveState& ghost_state, bool& ghost_valid, const std::string& save_path, const std::string& rom_name, bool& show_load_error, bool& blinky_game_over, int& blinky_score, bool& blinky_collision_latch, const std::string& rom_file) {
   SDL_Event event;
 
   while (SDL_PollEvent(&event)) {
@@ -186,8 +186,17 @@ void handle_input(Chip8 &chip8, bool &running, int &cycles_per_frame, int &color
     if (ImGui::GetIO().WantCaptureKeyboard) continue;
 
     if (event.type == SDL_KEYDOWN) {
-      if (event.key.keysym.sym == SDLK_ESCAPE)
+      if (event.key.keysym.sym == SDLK_ESCAPE) {
         running = false;
+      }
+      else if (event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_RETURN) {
+        if (rom_name == "BLINKY" && blinky_game_over) {
+            blinky_score = 0;
+            blinky_game_over = false;
+            blinky_collision_latch = false;
+            chip8.load_rom(rom_file);
+        }
+      }
       else if (event.key.keysym.sym == SDLK_UP) {
           cycles_per_frame++;
           if (cycles_per_frame > 30) cycles_per_frame = 30;
@@ -298,6 +307,7 @@ int main(int argc, char **argv) {
   bool blinky_caught = false;
   float blinky_caught_timer = 0.0f;
   bool blinky_collision_latch = false;
+  bool blinky_game_over = false;
 
   while (running) {
     uint32_t frame_start = SDL_GetTicks();
@@ -313,7 +323,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, show_load_error);
+    handle_input(chip8, running, cycles_per_frame, color_theme, ghost_state, ghost_valid, save_path, rom_name, show_load_error, blinky_game_over, blinky_score, blinky_collision_latch, argv[1]);
     
     for (int i = 0; i < cycles_per_frame; i++) {
       chip8.emulate_cycle();
@@ -323,7 +333,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    if (rom_name == "BLINKY" && blinky_assist) {
+    if (rom_name == "BLINKY" && blinky_assist && !blinky_game_over) {
         int px = chip8.v[8];
         int py = chip8.v[9];
         int g1x = chip8.v[0xA];
@@ -354,6 +364,7 @@ int main(int argc, char **argv) {
             blinky_caught_timer -= dt;
             if (blinky_caught_timer <= 0.0f) {
                 blinky_caught = false;
+                blinky_game_over = true;
             }
         }
     }
@@ -470,6 +481,22 @@ int main(int argc, char **argv) {
         ImGui::Begin("Overlay", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "     CAUGHT!     ");
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "      +100       ");
+        ImGui::End();
+    }
+    
+    if (rom_name == "BLINKY" && blinky_assist && blinky_game_over) {
+        ImGui::SetNextWindowPos(ImVec2(GAME_WIDTH / 2.0f + PADDING, GAME_HEIGHT / 2.0f + PADDING), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::Begin("Game Over", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "========================");
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "       GAME OVER        ");
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "                        ");
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "     SCORE: %06d      ", blinky_score);
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "                        ");
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "     [ R ] RESTART      ");
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "   [ ENTER ] RESTART    ");
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "                        ");
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "      [ ESC ] QUIT      ");
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "========================");
         ImGui::End();
     }
 
